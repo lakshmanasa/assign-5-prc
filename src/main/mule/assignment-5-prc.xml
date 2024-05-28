@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:crypto="http://www.mulesoft.org/schema/mule/crypto" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/crypto http://www.mulesoft.org/schema/mule/crypto/current/mule-crypto.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="eac34161-c699-4a0b-9ba4-69ab2aca86e3" >
+		<http:listener-connection host="0.0.0.0" port="8083" />
+	</http:listener-config>
+	<flow name="assignment-5-prcFlow" doc:id="7811ce17-7968-4644-a30f-dd4bb1d194b1" >
+		<http:listener doc:name="Listener" doc:id="4e6e2aba-0a75-4e3b-8ace-c1ec89c002bd" config-ref="HTTP_Listener_config" path="/getprc/{id}">
+			<http:error-response >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<set-variable value="#[attributes.uriParams.id]" doc:name="Set Variable" doc:id="c5e6927f-dfb3-450d-9b4d-bad4f0bcbae6" variableName="a"/>
+		<crypto:jce-encrypt-pbe doc:name="Jce encrypt pbe" doc:id="6bd6c6a2-c707-41ad-a6c2-5efa51e04f6d" password="mulesoft">
+			<crypto:content ><![CDATA[#[attributes.uriParams.id]]]></crypto:content>
+		</crypto:jce-encrypt-pbe>
+		<ee:transform doc:name="Transform Message" doc:id="3bedecb2-adf0-406e-95f3-13a27ba9f09b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import dw::Crypto
+import toBase64 from dw::core::Binaries
+---
+toBase64(payload)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<http:request method="GET" doc:name="Request" doc:id="dc6531b2-32f9-470d-b842-eb0eaa589e87" url="http://localhost:8082/select/{id}" responseTimeout="1800000">
+			<http:uri-params ><![CDATA[#[{id: payload}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="0574e521-524e-416c-8a82-00e12abea12d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="e427c83f-c881-4cd7-9e09-672e4cd61080" >
+			<when expression="#[sizeOf(payload) &gt;0]">
+				<ee:transform doc:name="Transform Message" doc:id="487a55d7-0a1d-41d2-9bda-f745198fe267" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<raise-error doc:name="Raise error" doc:id="24b0451f-915e-4d66-8239-054f4159cbdd" type="NO:USER" description='#["THERE IS NO RECORD ON THIS EMPLOYEE ID " ++ vars.a]'/>
+			</otherwise>
+		</choice>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="cde28d27-708b-47de-a3a3-6fe3c327b4aa" type="NO:USER">
+				<set-payload value='#[error.description]' doc:name="Set Payload" doc:id="4e355f0e-df47-49af-aad0-4bfc1434d0f0" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="assignment-5-prcFlow1" doc:id="fffb4c8b-c3f8-41cd-8721-9a4f8ca3e281" >
+		<http:listener doc:name="Listener" doc:id="54af2ec6-fa04-4cd9-b343-5ff5fea951c9" config-ref="HTTP_Listener_config" path="/postprc"/>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="f43d6865-5a20-4d0c-b403-1029fd90ac38" variableName="a"/>
+		<http:request method="GET" doc:name="Request" doc:id="d652b24c-b890-4d5d-ad82-725a89f14884" url="http://localhost:8082/all" responseTimeout="1800000"/>
+		<ee:transform doc:name="Transform Message" doc:id="c090b0f4-7535-45c1-84a3-d61b0514ac68" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="6d45f3df-42fc-48f8-905d-c2dec31af5b4" >
+			<when expression="#[(payload.id) contains (vars.a.id)]">
+				<ee:transform doc:name="Transform Message" doc:id="57114710-325d-4572-8e81-ccf06c869625" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message": "already this employee id exists in the database " ++ vars.a.id as String
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<set-payload value="#[vars.a]" doc:name="Set Payload" doc:id="acd44eca-57d3-40a9-9dc9-e12476f2ef6a" />
+				<crypto:jce-encrypt-pbe doc:name="Jce encrypt pbe" doc:id="defd6212-fb9f-41e5-a235-f371f3555299" password="mulesoft" />
+				<ee:transform doc:name="Transform Message" doc:id="b0efcf33-5516-4472-bec6-0fe0234a3c70">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+import dw::Crypto
+import toBase64 from dw::core::Binaries
+---
+toBase64(payload)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<http:request method="POST" doc:name="Request" doc:id="45835468-5f37-453f-82db-f98630831efc" url="http://localhost:8082/insert" responseTimeout="1800000"/>
+				<ee:transform doc:name="Transform Message" doc:id="468d70fe-97c2-48c1-9e41-716d4c7f6c13" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
